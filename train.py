@@ -6,7 +6,7 @@ import random
 import shutil
 import time
 from collections import OrderedDict
-
+import copy
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
+import models
 from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
 
@@ -322,6 +322,16 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         losses_x = AverageMeter()
         losses_u = AverageMeter()
         mask_probs = AverageMeter()
+
+        import ssder
+        import models.wideresnet as models
+        modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).cuda()
+        # ckpt = torch.load("./epoch=0-step=97.ckpt")
+        # print(ckpt.keys())
+        # modelemb.load_state_dict(ckpt['state_dict'])
+        modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
+        modelemb.eval()
+        mhdister = ssder.SSDC(modelemb,labeled_trainloader,10)
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
                          disable=args.local_rank not in [-1, 0])
@@ -365,10 +375,18 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
 
+            targets_mahl = torch.tensor(mhdister.batch_md(inputs_u_w)).cuda()
+            #print(targets_mahl,targets_mahl.shape)
+            
             pseudo_label = torch.softmax(logits_u_w.detach()/args.T, dim=-1)
             max_probs, targets_u = torch.max(pseudo_label, dim=-1)
             mask = max_probs.ge(args.threshold).float()
+            #print(targets_u,targets_u.shape)
 
+            mask2 = targets_u.eq(targets_mahl).to(torch.int32)
+
+            mask = torch.logical_and(mask2,mask.to(torch.int32)).to(torch.float32)
+            #print(mask,type(mask))
             Lu = (F.cross_entropy(logits_u_s, targets_u,
                                   reduction='none') * mask).mean()
 
