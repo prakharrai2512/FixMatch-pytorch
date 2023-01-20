@@ -325,6 +325,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         og_mask = AverageMeter()
         new_mask = AverageMeter()
         comb_mask = AverageMeter()
+        og_choice = AverageMeter()
+        new_choice = AverageMeter()
 
         import ssder
         import models.wideresnet as models
@@ -382,22 +384,23 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             targets_mahl = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #new mahalonbis distance targets
             #print(targets_mahl,targets_mahl.shape)
-            acc_mask_mahl_gt = targets_mahl.eq(targets_gt).to(torch.int32).sum().item()/targets_mahl.size()[0]!=0  #acc of mahl dist mask
+            acc_mask_mahl_gt = targets_mahl.eq(targets_gt).to(torch.int32).sum().item()/targets_mahl.size()[0]  #acc of mahl dist mask
 
-
+            #print(acc_mask_mahl_gt)
+            #print(targets_mahl.eq(targets_gt),targets_mahl,targets_gt)
             pseudo_label = torch.softmax(logits_u_w.detach()/args.T, dim=-1)
             max_probs, targets_u = torch.max(pseudo_label, dim=-1)
             mask = max_probs.ge(args.threshold).float()
             #print(targets_u,targets_u.shape)
 
             acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item() if mask.sum().item()!=0 else 1) #acc of fixmatch mask
-
+            og_choice.update(mask.sum().item())
             mahl_mask = targets_u.eq(targets_mahl).to(torch.int32) #mask2 based on mahl targets and weak aug targets being same
 
             acc_mask_comb_gt = (targets_gt.eq(targets_u).to(torch.int32)*mahl_mask).sum().item()/(mahl_mask.sum().item() if mahl_mask.sum().item()!=0 else 1) #acc of fixmatch mask
             
             mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
-            #print(mask,type(mask))
+            new_choice.update(mask.sum().item())
             Lu = (F.cross_entropy(logits_u_s, targets_u,
                                   reduction='none') * mask).mean()
 
@@ -457,6 +460,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             args.writer.add_scalar('train/5.og_mask_acc', og_mask.avg, epoch)
             args.writer.add_scalar('train/6.mahl_mas_acc', new_mask.avg, epoch)
             args.writer.add_scalar('train/7.comb_mask_acc', comb_mask.avg, epoch)
+            args.writer.add_scalar('train/8.og_choice', og_choice.avg, epoch)
+            args.writer.add_scalar('train/9.new_choice', new_choice.avg, epoch)
             args.writer.add_scalar('test/1.test_acc', test_acc, epoch)
             args.writer.add_scalar('test/2.test_loss', test_loss, epoch)
 
