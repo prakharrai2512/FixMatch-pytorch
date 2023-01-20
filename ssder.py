@@ -15,7 +15,8 @@ from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
 
 class SSDC:
-    def __init__(self,model,train_loader,num_classes,class_labels=None):
+    def __init__(self,model,train_loader,num_classes,args,class_labels=None,):
+        self.args = args
         model.eval()
         self.model = model
         self.clasv = []
@@ -35,7 +36,7 @@ class SSDC:
             self.covari.append([])
 
         for step, (x, y) in enumerate(train_loader):
-            output_x = self.model.ret_emb(x.cuda())
+            output_x = self.model.ret_emb(x.to(self.args.device))
             y = y.detach().cpu().numpy()
             #print(output_x[0].shape,"Hello",y[0])
             for i in range(len(y)):
@@ -51,7 +52,7 @@ class SSDC:
 
 
     def mah_close(self,x):
-        x = self.model.ret_emb(x.cuda())
+        x = self.model.ret_emb(x.to(self.args.device))
         x = x.detach().cpu().numpy()
         print(x.shape)
         lst = 1e20
@@ -74,7 +75,7 @@ class SSDC:
         return ans,lst
 
     def batch_md(self,x):
-        x = self.model.ret_emb(x.cuda())
+        x = self.model.ret_emb(x.to(self.args.device))
         x = x.detach().cpu().numpy()
         ans = []
         for i in range(x.shape[0]):
