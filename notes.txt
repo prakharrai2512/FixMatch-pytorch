@@ -1,0 +1,5 @@
+1. Implement a tensorboard log which shows out of the mask accepted labels how many are same as true label for both original and new mask.
+2. Move mask accepted to labeled train
+3. Same mask function implemnt 1 and test on 40 labelled set
+4. Use barlow weights
+5. Use ema weights
