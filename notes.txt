@@ -3,3 +3,5 @@
 3. Same mask function implemnt 1 and test on 40 labelled set
 4. Use barlow weights
 5. Use ema weights
+
+python train.py --dataset cifar10 --num-labeled 40 --arch wideresnet --batch-size 64 --lr 0.03 --expand-labels --seed 5 --out results/cifar10@40.5-barlow --opt_level 02 --wdecay 0.001 --gpu-id 2

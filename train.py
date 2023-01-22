@@ -315,6 +315,16 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
     unlabeled_iter = iter(unlabeled_trainloader)
 
     model.train()
+
+    import ssder
+    import models.wideresnet as models
+    modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+    ckpt = torch.load("barlow_weights.pt")
+    # print(ckpt.keys())
+    modelemb.load_state_dict(ckpt)
+    #modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
+    modelemb.eval()
+    mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args)
     for epoch in range(args.start_epoch, args.epochs):
         batch_time = AverageMeter()
         data_time = AverageMeter()
@@ -328,15 +338,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         og_choice = AverageMeter()
         new_choice = AverageMeter()
 
-        import ssder
-        import models.wideresnet as models
-        modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
-        # ckpt = torch.load("./epoch=0-step=97.ckpt")
-        # print(ckpt.keys())
-        # modelemb.load_state_dict(ckpt['state_dict'])
-        modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
-        modelemb.eval()
-        mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args)
+
+        
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
                          disable=args.local_rank not in [-1, 0])
@@ -399,7 +402,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             acc_mask_comb_gt = (targets_gt.eq(targets_u).to(torch.int32)*mahl_mask).sum().item()/(mahl_mask.sum().item() if mahl_mask.sum().item()!=0 else 1) #acc of fixmatch mask
             
-            mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
+            #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
             new_choice.update(mask.sum().item())
             Lu = (F.cross_entropy(logits_u_s, targets_u,
                                   reduction='none') * mask).mean()
