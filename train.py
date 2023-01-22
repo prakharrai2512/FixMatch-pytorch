@@ -400,9 +400,9 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
             og_choice.update(mask.sum().item())
-            mahl_mask5 = mahl_mask.ge(5).float()
-            mahl_mask10 = mahl_mask.ge(10).float()
-            mahl_mask15 = mahl_mask.ge(15).float()
+            mahl_mask5 = mahl_mask.le(5).float()
+            mahl_mask10 = mahl_mask.le(10).float()
+            mahl_mask15 = mahl_mask.le(15).float()
             
             mahl_masker5 = torch.logical_and(mahl_mask5,mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
             mahl_masker10 = torch.logical_and(mahl_mask10,mask.to(torch.int32)).to(torch.float32)
