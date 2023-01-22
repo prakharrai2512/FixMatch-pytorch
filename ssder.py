@@ -65,7 +65,7 @@ class SSDC:
         return ans,lst
     
     def mah_closer(self,x):
-        lst = 2.5
+        lst = 100000
         ans = 0
         for i in range(len(self.mean)):
             dist = spd.mahalanobis(x,self.mean[i],self.covari[i])
