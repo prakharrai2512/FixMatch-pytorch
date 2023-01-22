@@ -65,13 +65,14 @@ class SSDC:
         return ans,lst
     
     def mah_closer(self,x):
-        lst = 1e20
+        lst = 2.5
         ans = 0
         for i in range(len(self.mean)):
             dist = spd.mahalanobis(x,self.mean[i],self.covari[i])
             if dist<lst:
                 lst = dist
-                ans = i
+                ans = 1
+                break
         return ans,lst
 
     def batch_md(self,x):
