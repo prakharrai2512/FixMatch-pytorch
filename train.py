@@ -315,7 +315,15 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
     unlabeled_iter = iter(unlabeled_trainloader)
 
     model.train()
-
+    import ssder
+    import models.wideresnet as models
+    modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+    #ckpt = torch.load("barlow_weights.pt")
+    # print(ckpt.keys())
+    #modelemb.load_state_dict(ckpt)
+    # modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
+    # modelemb.eval()
+    mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args) 
     
     for epoch in range(args.start_epoch, args.epochs):
         batch_time = AverageMeter()
@@ -324,6 +332,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         losses_x = AverageMeter()
         losses_u = AverageMeter()
         mask_probs = AverageMeter()
+
         og_mask = AverageMeter()
         new_mask = AverageMeter()
         comb_mask5 = AverageMeter()
@@ -332,16 +341,11 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         og_choice = AverageMeter()
         new_choice = AverageMeter()
         mean_dev = AverageMeter()
-        import ssder
-        import models.wideresnet as models
-        modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
-        #ckpt = torch.load("barlow_weights.pt")
-        # print(ckpt.keys())
-        #modelemb.load_state_dict(ckpt)
-        modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
-        modelemb.eval()
-        mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args) 
-        
+
+        mhdister.model.load_state_dict(copy.deepcopy(model.state_dict()))
+        mhdister.calc()
+        mhdister.clr()
+
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
                          disable=args.local_rank not in [-1, 0])
@@ -400,18 +404,20 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
             og_choice.update(mask.sum().item())
-            mahl_mask5 = mahl_mask.le(5).float()
-            mahl_mask10 = mahl_mask.le(10).float()
-            mahl_mask15 = mahl_mask.le(15).float()
+            mahl_mask5 = mahl_mask.le(50).float()
+            mahl_mask10 = mahl_mask.le(200).float()
+            mahl_mask15 = mahl_mask.le(500).float()
             
             mahl_masker5 = torch.logical_and(mahl_mask5,mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
             mahl_masker10 = torch.logical_and(mahl_mask10,mask.to(torch.int32)).to(torch.float32)
             mahl_masker15 = torch.logical_and(mahl_mask15,mask.to(torch.int32)).to(torch.float32)
-            acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_mask5.sum().item()+1) #acc of fixmatch mask
-            acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_mask10.sum().item()+1)
-            acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_mask15.sum().item()+1)
+            acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_masker5.sum().item()+1) #acc of fixmatch mask
+            acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_masker10.sum().item()+1)
+            acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item()+1)
             #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
-            new_choice.update(mask.sum().item())
+            #print(inputs_u_w.shape)
+            mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
+            new_choice.update(mahl_masker10.sum().item())
             Lu = (F.cross_entropy(logits_u_s, targets_u,
                                   reduction='none') * mahl_masker10).mean()
 
