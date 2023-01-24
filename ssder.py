@@ -72,9 +72,11 @@ class SSDC:
         #print(self.mean.shape,self.covari.shape,x.shape)
         #print(x.type(),self.mean.type(),self.covari.type())
         dist = torch.sqrt(((x-self.mean).unsqueeze(0)@self.covari@((x-self.mean).unsqueeze(0).transpose(1,0)))).float()
+        #print("dist",dist)
         #print(((x-self.mean).unsqueeze(0)*self.covari).shape,dist.shape,((x-self.mean).unsqueeze(0).transpose(1,0)).shape,(x-self.mean).unsqueeze(0).shape)
         if (dist<lst).float()[0]:
             lst = dist.item()
+            #print("lst",lst)
             ans = 1
         return lst,ans
 
