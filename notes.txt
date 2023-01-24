@@ -5,3 +5,8 @@
 5. Use ema weights
 
 python train.py --dataset cifar10 --num-labeled 40 --arch wideresnet --batch-size 64 --lr 0.03 --expand-labels --seed 5 --out results/cifar10@40.5-ssd1 --opt_level 02 --wdecay 0.001 --gpu-id 5
+
+oneclassed: 20,50,200 50
+singlessddev: 5,20,50: 20
+
+oncentre-400:20,40,60 ; 40
