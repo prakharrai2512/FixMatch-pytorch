@@ -315,15 +315,15 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
     unlabeled_iter = iter(unlabeled_trainloader)
 
     model.train()
-    import ssder
-    import models.wideresnet as models
-    modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
-    #ckpt = torch.load("barlow_weights.pt")
-    # print(ckpt.keys())
-    #modelemb.load_state_dict(ckpt)
-    # modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
-    # modelemb.eval()
-    mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args) 
+    # import ssder
+    # import models.wideresnet as models
+    # modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+    # #ckpt = torch.load("barlow_weights.pt")
+    # # print(ckpt.keys())
+    # #modelemb.load_state_dict(ckpt)
+    # # modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
+    # # modelemb.eval()
+    # mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args) 
     
     for epoch in range(args.start_epoch, args.epochs):
         batch_time = AverageMeter()
@@ -334,17 +334,17 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         mask_probs = AverageMeter()
 
         og_mask = AverageMeter()
-        new_mask = AverageMeter()
-        comb_mask5 = AverageMeter()
-        comb_mask10 = AverageMeter()
-        comb_mask15 = AverageMeter()
-        og_choice = AverageMeter()
-        new_choice = AverageMeter()
-        mean_dev = AverageMeter()
+        # new_mask = AverageMeter()
+        # comb_mask5 = AverageMeter()
+        # comb_mask10 = AverageMeter()
+        # comb_mask15 = AverageMeter()
+        # og_choice = AverageMeter()
+        # new_choice = AverageMeter()
+        # mean_dev = AverageMeter()
 
-        mhdister.model.load_state_dict(copy.deepcopy(model.state_dict()))
-        mhdister.calc()
-        mhdister.clr()
+        # mhdister.model.load_state_dict(copy.deepcopy(model.state_dict()))
+        # mhdister.calc()
+        # mhdister.clr()
 
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
@@ -391,10 +391,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
 
-            mahl_mask = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #part of atleast 1 cluster
+            #mahl_mask = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #part of atleast 1 cluster
             #print(targets_mahl,targets_mahl.shape)
             #acc_mask_mahl_gt = targets_mahl.eq(targets_gt).to(torch.int32).sum().item()/targets_mahl.size()[0]  #acc of mahl dist mask
-            mahl_dev_mean = mahl_mask.mean().item()
+            #mahl_dev_mean = mahl_mask.mean().item()
             #print(acc_mask_mahl_gt)
             #print(targets_mahl.eq(targets_gt),targets_mahl,targets_gt)
             pseudo_label = torch.softmax(logits_u_w.detach()/args.T, dim=-1)
@@ -403,29 +403,29 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             #print(targets_u,targets_u.shape)
 
             acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
-            og_choice.update(mask.sum().item())
-            mahl_mask5 = mahl_mask.le(20).float()
-            mahl_mask10 = mahl_mask.le(40).float()
-            mahl_mask15 = mahl_mask.le(60).float()
+            #og_choice.update(mask.sum().item())
+            #mahl_mask5 = mahl_mask.le(20).float()
+            #mahl_mask10 = mahl_mask.le(40).float()
+            #mahl_mask15 = mahl_mask.le(60).float()
             
-            mahl_masker5 = torch.logical_and(mahl_mask5.to(torch.int32),mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
-            mahl_masker10 = torch.logical_and(mahl_mask10.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
+            #mahl_masker5 = torch.logical_and(mahl_mask5.to(torch.int32),mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
+            #mahl_masker10 = torch.logical_and(mahl_mask10.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
             # print("mask",mask)
             # print("mask",(mahl_mask10!=mask).int().sum())
             # print("and mask",(mahl_masker10!=mask).int().sum())
-            mahl_masker15 = torch.logical_and(mahl_mask15.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
-            acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_masker5.sum().item()+1) #acc of fixmatch mask
-            acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_masker10.sum().item()+1)
-            acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item()+1)
+            #mahl_masker15 = torch.logical_and(mahl_mask15.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
+            #acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_masker5.sum().item()+1) #acc of fixmatch mask
+            #acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_masker10.sum().item()+1)
+            #acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item()+1)
             #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
             #print(inputs_u_w.shape)
-            mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
+            #mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
             # print(int((mask.sum().item()-mahl_masker10.sum().item())>0)*1e15)
             # if (mask.sum().item()-mahl_masker10.sum().item())>0:
             #     print("t\n\n\n\n\n\n\n\n\n\n\n\n\n\nballe balle\n\n\n\n\n\n\n\n\n\n\n\n\n t \n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-            new_choice.update(int((mask.sum().item()-mahl_masker10.sum().item())>0)*1e15)
+            #new_choice.update(int((mask.sum().item()-mahl_masker10.sum().item())>0)*1e15)
             Lu = (F.cross_entropy(logits_u_s, targets_u,
-                                  reduction='none') * mahl_masker10).mean()
+                                  reduction='none') * mask).mean()
 
             loss = Lx + args.lambda_u * Lu
 
@@ -440,10 +440,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             losses_u.update(Lu.item())
             og_mask.update(acc_mask_fxmtch_gt)
             #new_mask.update(acc_mask_mahl_gt)
-            comb_mask5.update(acc_mask_comb_gt5)
-            comb_mask10.update(acc_mask_comb_gt10)
-            comb_mask15.update(acc_mask_comb_gt15)
-            mean_dev.update(mahl_dev_mean)
+            # comb_mask5.update(acc_mask_comb_gt5)
+            # comb_mask10.update(acc_mask_comb_gt10)
+            # comb_mask15.update(acc_mask_comb_gt15)
+            # mean_dev.update(mahl_dev_mean)
             optimizer.step()
             scheduler.step()
             if args.use_ema:
@@ -484,13 +484,13 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             args.writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
             args.writer.add_scalar('train/4.mask', mask_probs.avg, epoch)
             args.writer.add_scalar('train/5.og_mask_acc', og_mask.avg, epoch)
-            args.writer.add_scalar('train/6.mahl_dev_mean', mean_dev.avg, epoch)
-            args.writer.add_scalar('train/7.comb_mask_acc', comb_mask10.avg, epoch)
-            args.writer.add_scalar('train/7.comb_mask5_acc', comb_mask5.avg, epoch)
-            args.writer.add_scalar('train/7.comb_mask10_acc', comb_mask10.avg, epoch)
-            args.writer.add_scalar('train/7.comb_mask15_acc', comb_mask15.avg, epoch)
-            args.writer.add_scalar('train/8.og_choice', og_choice.avg, epoch)
-            args.writer.add_scalar('train/9.new_choice', new_choice.avg, epoch)
+            # args.writer.add_scalar('train/6.mahl_dev_mean', mean_dev.avg, epoch)
+            # args.writer.add_scalar('train/7.comb_mask_acc', comb_mask10.avg, epoch)
+            # args.writer.add_scalar('train/7.comb_mask5_acc', comb_mask5.avg, epoch)
+            # args.writer.add_scalar('train/7.comb_mask10_acc', comb_mask10.avg, epoch)
+            # args.writer.add_scalar('train/7.comb_mask15_acc', comb_mask15.avg, epoch)
+            # args.writer.add_scalar('train/8.og_choice', og_choice.avg, epoch)
+            # args.writer.add_scalar('train/9.new_choice', new_choice.avg, epoch)
             args.writer.add_scalar('test/1.test_acc', test_acc, epoch)
             args.writer.add_scalar('test/2.test_loss', test_loss, epoch)
 
