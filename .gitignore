@@ -109,3 +109,4 @@ venv.bak/
 *.pt
 
 /backups
+/results_old
