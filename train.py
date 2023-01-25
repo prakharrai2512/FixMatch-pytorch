@@ -334,7 +334,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         mask_probs = AverageMeter()
 
         og_mask = AverageMeter()
-        new_mask = AverageMeter()
+        #new_mask = AverageMeter()
         comb_mask5 = AverageMeter()
         comb_mask10 = AverageMeter()
         comb_mask15 = AverageMeter()
@@ -405,8 +405,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
             og_choice.update(mask.sum().item())
             mahl_mask5 = mahl_mask.le(20).float()
-            mahl_mask10 = mahl_mask.le(40).float()
-            mahl_mask15 = mahl_mask.le(60).float()
+            mahl_mask10 = mahl_mask.le(50).float()
+            mahl_mask15 = mahl_mask.le(80).float()
             
             mahl_masker5 = torch.logical_and(mahl_mask5.to(torch.int32),mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
             mahl_masker10 = torch.logical_and(mahl_mask10.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
@@ -414,9 +414,9 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             # print("mask",(mahl_mask10!=mask).int().sum())
             # print("and mask",(mahl_masker10!=mask).int().sum())
             mahl_masker15 = torch.logical_and(mahl_mask15.to(torch.int32),mask.to(torch.int32)).to(torch.float32)
-            acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_masker5.sum().item()+1) #acc of fixmatch mask
-            acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_masker10.sum().item()+1)
-            acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item()+1)
+            acc_mask_comb_gt5 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker5).sum().item()/(mahl_masker5.sum().item() if mahl_masker5.sum().item()!=0 else 1) #acc of fixmatch mask
+            acc_mask_comb_gt10 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker10).sum().item()/(mahl_masker10.sum().item() if mahl_masker10.sum().item()!=0 else 1)
+            acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item() if mahl_masker15.sum().item()!=0 else 1)
             #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
             #print(inputs_u_w.shape)
             mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
