@@ -419,7 +419,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             acc_mask_comb_gt15 = (targets_gt.eq(targets_u).to(torch.int32)*mahl_masker15).sum().item()/(mahl_masker15.sum().item() if mahl_masker15.sum().item()!=0 else 1)
             #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
             #print(inputs_u_w.shape)
-            mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
+            if epoch>25:
+                mhdister.update(inputs_u_w[mahl_masker10.cpu().numpy()!=0])
             # print(int((mask.sum().item()-mahl_masker10.sum().item())>0)*1e15)
             # if (mask.sum().item()-mahl_masker10.sum().item())>0:
             #     print("t\n\n\n\n\n\n\n\n\n\n\n\n\n\nballe balle\n\n\n\n\n\n\n\n\n\n\n\n\n t \n\n\n\n\n\n\n\n\n\n\n\n\n\n")

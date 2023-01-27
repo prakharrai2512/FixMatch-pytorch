@@ -10,3 +10,7 @@ oneclassed: 20,50,200 50
 singlessddev: 5,20,50: 20
 
 oncentre-400:20,40,60 ; 40
+
+26/11
+ 
+try embeddings with relu and bn
