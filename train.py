@@ -19,7 +19,8 @@ from tqdm import tqdm
 import models
 from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
-
+import ssder
+import models.wideresnet as modelsbw
 logger = logging.getLogger(__name__)
 best_acc = 0
 
@@ -315,9 +316,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
     unlabeled_iter = iter(unlabeled_trainloader)
 
     model.train()
-    import ssder
-    import models.wideresnet as models
-    modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+    
+    modelemb = modelsbw.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
     #ckpt = torch.load("barlow_weights.pt")
     # print(ckpt.keys())
     #modelemb.load_state_dict(ckpt)
