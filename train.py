@@ -296,9 +296,21 @@ def main():
     train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
           model, optimizer, ema_model, scheduler)
 
+import torchvision
+from torchvision import transforms
+cifar10_mean = (0.4914, 0.4822, 0.4465)
+cifar10_std = (0.2471, 0.2435, 0.2616)
 
 def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
           model, optimizer, ema_model, scheduler):
+    
+    transform_val = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=cifar10_mean, std=cifar10_std)
+    ])
+    base_dataset = torchvision.datasets.CIFAR10("./data",train=True,transform=transform_val, download=True)
+    #base_dataset.data = base_dataset.data[np.arange(0,1000)]
+    #base_dataset.targets = np.array(base_dataset.targets)[np.arange(0,1000)]
     if args.amp:
         from apex import amp
     global best_acc
@@ -324,26 +336,21 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         losses_x = AverageMeter()
         losses_u = AverageMeter()
         mask_probs = AverageMeter()
-        og_mask = AverageMeter()
-        new_mask = AverageMeter()
-        comb_mask = AverageMeter()
-        og_choice = AverageMeter()
-        new_choice = AverageMeter()
-
-        import ssder
-        import models.wideresnet as models
-        modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
-        #ckpt = torch.load("barlow_weights.pt")
-        # print(ckpt.keys())
-        #modelemb.load_state_dict(ckpt)
-        modelemb.load_state_dict(copy.deepcopy(model.state_dict()))
-        modelemb.eval()
-        mhdister = ssder.SSDC(modelemb,labeled_trainloader,10,args)
+        # og_mask = AverageMeter()
+        # new_mask = AverageMeter()
+        # comb_mask = AverageMeter()
+        # og_choice = AverageMeter()
+        # new_choice = AverageMeter()
+        accuracymahlcomb = AverageMeter()
+        accuracymahlonly = AverageMeter()
+        
         
         if not args.no_progress:
             p_bar = tqdm(range(args.eval_step),
                          disable=args.local_rank not in [-1, 0])
         for batch_idx in range(args.eval_step):
+            # if epoch==0:
+            #     break
             try:
                 inputs_x, targets_x = next(labeled_iter)
                 # error occurs ↓
@@ -385,7 +392,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
 
-            mahl_mask = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #part of atleast 1 cluster
+            #mahl_mask = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #part of atleast 1 cluster
             #print(targets_mahl,targets_mahl.shape)
             #acc_mask_mahl_gt = targets_mahl.eq(targets_gt).to(torch.int32).sum().item()/targets_mahl.size()[0]  #acc of mahl dist mask
 
@@ -396,16 +403,16 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             mask = max_probs.ge(args.threshold).float()
             #print(targets_u,targets_u.shape)
 
-            acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
-            og_choice.update(mask.sum().item())
-            mahl_mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
+            #acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
+            #og_choice.update(mask.sum().item())
+            #mahl_mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
 
-            acc_mask_comb_gt = (targets_gt.eq(targets_u).to(torch.int32)*mahl_mask).sum().item()/(mahl_mask.sum().item()+1) #acc of fixmatch mask
+            #acc_mask_comb_gt = (targets_gt.eq(targets_u).to(torch.int32)*mahl_mask).sum().item()/(mahl_mask.sum().item()+1) #acc of fixmatch mask
             
             #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
-            new_choice.update(mask.sum().item())
+            #new_choice.update(mask.sum().item())
             Lu = (F.cross_entropy(logits_u_s, targets_u,
-                                  reduction='none') * mahl_mask).mean()
+                                  reduction='none') * mask).mean()
 
             loss = Lx + args.lambda_u * Lu
 
@@ -418,9 +425,9 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             losses.update(loss.item())
             losses_x.update(Lx.item())
             losses_u.update(Lu.item())
-            og_mask.update(acc_mask_fxmtch_gt)
+            #og_mask.update(acc_mask_fxmtch_gt)
             #new_mask.update(acc_mask_mahl_gt)
-            comb_mask.update(acc_mask_comb_gt)
+            #comb_mask.update(acc_mask_comb_gt)
             optimizer.step()
             scheduler.step()
             if args.use_ema:
@@ -453,6 +460,34 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         else:
             test_model = model
 
+        import ssder
+        import models.wideresnet as models
+        modelemb = models.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+        #ckpt = torch.load("barlow_weights.pt")
+        # print(ckpt.keys())
+        #modelemb.load_state_dict(ckpt)
+        modelemb.load_state_dict(copy.deepcopy(test_model.state_dict()))
+        modelemb.eval()
+        mhdister = ssder.SSDC(modelemb,base_dataset,10,args)
+        test_model.eval()
+        for i,((x_u,x_w),targets_true) in enumerate(unlabeled_trainloader):
+            logits_u = model(x_u.to(args.device))
+            targets_true = targets_true.to(args.device)
+            pseudo_label = torch.softmax(logits_u.detach()/args.T, dim=-1)
+            max_probs, targets_u = torch.max(pseudo_label, dim=-1)
+            mask = max_probs.ge(args.threshold).float()
+            targets_mh = torch.tensor(mhdister.batch_md(x_u),device = args.device)
+            mask2 = targets_mh.eq(targets_u).to(torch.int32) #mask where the mahlanobis pred is same as fxmt pred
+            mask3 = mask2*mask #mask where both preds are equal and threshold is crossed
+            mask4 = targets_mh.eq(targets_true).to(torch.int32)
+            actt2 = mask4.sum().item()/mask4.flatten().shape[0] 
+            mask4 = mask4*mask3
+            acct = mask4.sum().item()/(mask3.sum().item() if mask3.sum().item() !=0 else 1)
+            accuracymahlcomb.update(acct)
+            accuracymahlonly.update(actt2)
+            #print(acct)
+            #print(actt2)
+            
         if args.local_rank in [-1, 0]:
             test_loss, test_acc = test(args, test_loader, test_model, epoch)
 
@@ -460,11 +495,11 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             args.writer.add_scalar('train/2.train_loss_x', losses_x.avg, epoch)
             args.writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
             args.writer.add_scalar('train/4.mask', mask_probs.avg, epoch)
-            args.writer.add_scalar('train/5.og_mask_acc', og_mask.avg, epoch)
-            #args.writer.add_scalar('train/6.mahl_mas_acc', new_mask.avg, epoch)
-            args.writer.add_scalar('train/7.comb_mask_acc', comb_mask.avg, epoch)
-            args.writer.add_scalar('train/8.og_choice', og_choice.avg, epoch)
-            args.writer.add_scalar('train/9.new_choice', new_choice.avg, epoch)
+            args.writer.add_scalar('train/5.mahl_acc_overall', accuracymahlonly.avg, epoch)
+            args.writer.add_scalar('train/6.mahl_fxmtch_combindacc', accuracymahlcomb.avg, epoch)
+            # args.writer.add_scalar('train/7.comb_mask_acc', comb_mask.avg, epoch)
+            # args.writer.add_scalar('train/8.og_choice', og_choice.avg, epoch)
+            # args.writer.add_scalar('train/9.new_choice', new_choice.avg, epoch)
             args.writer.add_scalar('test/1.test_acc', test_acc, epoch)
             args.writer.add_scalar('test/2.test_loss', test_loss, epoch)
 

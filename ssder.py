@@ -15,10 +15,11 @@ from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
 
 class SSDC:
-    def __init__(self,model,train_loader,num_classes,args,class_labels=None,):
+    def __init__(self,model,train_set,num_classes,args,class_labels=None,):
         self.args = args
         model.eval()
         self.model = model
+        self.model.eval()
         self.clasv = []
         for i in range(num_classes):
             self.clasv.append([])
@@ -35,12 +36,15 @@ class SSDC:
         for i in range(num_classes):
             self.covari.append([])
 
-        for step, (x, y) in enumerate(train_loader):
+        for x, y in train_set:
+            #print(x.shape,y)
+            x = torch.stack([x])
             output_x = self.model.ret_emb(x.to(self.args.device))
-            y = y.detach().cpu().numpy()
-            #print(output_x[0].shape,"Hello",y[0])
-            for i in range(len(y)):
-                self.clasv[y[i]].append(output_x[i].detach().cpu().numpy().flatten())
+            # y = y.detach().cpu().numpy()
+            # #print(output_x[0].shape,"Hello",y[0])
+            # for i in range(len(y)):
+            #     self.clasv[y[i]].append(output_x[i].detach().cpu().numpy().flatten())
+            self.clasv[y].append(output_x[0].detach().cpu().numpy().flatten())
         
         for i in range(num_classes):
             temp = np.array(self.clasv[i])
@@ -71,8 +75,7 @@ class SSDC:
             dist = spd.mahalanobis(x,self.mean[i],self.covari[i])
             if dist<lst:
                 lst = dist
-                ans = 1
-                break
+                ans = i
         return ans,lst
 
     def batch_md(self,x):
