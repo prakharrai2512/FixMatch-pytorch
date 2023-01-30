@@ -72,6 +72,10 @@ class SSDC:
         #print(self.mean.shape,self.covari.shape,x.shape)
         #print(x.type(),self.mean.type(),self.covari.type())
         dist = torch.sqrt(((x-self.mean).unsqueeze(0)@self.covari@((x-self.mean).unsqueeze(0).transpose(1,0)))).float()
+        dist2 = spd.mahalanobis(x.detach().cpu().numpy(),self.mean.detach().cpu().numpy(),self.covari.detach().cpu().numpy())
+        print(dist.item(),dist2)
+        if(abs(dist.item()-dist2)>1):
+            print("bawaal bc",dist2-dist.item())
         #print("dist",dist)
         #print(((x-self.mean).unsqueeze(0)*self.covari).shape,dist.shape,((x-self.mean).unsqueeze(0).transpose(1,0)).shape,(x-self.mean).unsqueeze(0).shape)
         if (dist<lst).float()[0]:
