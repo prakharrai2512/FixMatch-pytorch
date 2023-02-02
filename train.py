@@ -310,7 +310,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         transforms.Normalize(mean=cifar10_mean, std=cifar10_std)
     ])
     base_dataset = torchvision.datasets.CIFAR10("./data",train=True,transform=transform_val, download=True)
-    #base_dataset.data = base_dataset.data[np.arange(0,1000)]
+    base_dataset.data = base_dataset.data[np.arange(0,1000)]
     #base_dataset.targets = np.array(base_dataset.targets)[np.arange(0,1000)]
     if args.amp:
         from apex import amp
