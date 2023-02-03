@@ -347,6 +347,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
     
     for epoch in range(args.start_epoch, args.epochs):
+        if args.use_ema:
+            test_model = ema_model.ema
+        else:
+            test_model = model
         modelemb = modelswb.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
         #ckpt = torch.load("barlow_weights.pt")
         # print(ckpt.keys())
