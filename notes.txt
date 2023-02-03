@@ -5,3 +5,16 @@
 5. Use ema weights
 
 python train.py --dataset cifar10 --num-labeled 40 --arch wideresnet --batch-size 64 --lr 0.03 --expand-labels --seed 5 --out results/cifar10@40.5-test1000 --gpu-id 4
+
+try the mahlnobis experiment with equal class representation
+
+Experiment 1:
+How accurate is mahlobis as a classifier 
+with all labels: 95%
+with 1000 labels: doesnt perform well
+with 5000 labels: ~95%
+
+
+Experiment #2:
+Make a fixed mahlnobis distance classifier giving it a set of images (5000 for test). Dont add or remove anything.
+Mask mahlnobis pred with fxmtch pred. 

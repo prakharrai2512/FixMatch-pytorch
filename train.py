@@ -302,6 +302,20 @@ from torchvision import transforms
 cifar10_mean = (0.4914, 0.4822, 0.4465)
 cifar10_std = (0.2471, 0.2435, 0.2616)
 
+def x_u_split_mod(labels):
+    label_per_class = 500
+    labels = np.array(labels)
+    labeled_idx = []
+    # unlabeled data: all data (https://github.com/kekmodel/FixMatch-pytorch/issues/10)
+    unlabeled_idx = np.array(range(len(labels)))
+    for i in range(10):
+        idx = np.where(labels == i)[0]
+        idx = np.random.choice(idx, label_per_class, False)
+        labeled_idx.extend(idx)
+    labeled_idx = np.array(labeled_idx)
+    return labeled_idx
+
+
 def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
           model, optimizer, ema_model, scheduler):
     
@@ -310,8 +324,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
         transforms.Normalize(mean=cifar10_mean, std=cifar10_std)
     ])
     base_dataset = torchvision.datasets.CIFAR10("./data",train=True,transform=transform_val, download=True)
-    base_dataset.data = base_dataset.data[np.arange(0,1000)]
-    #base_dataset.targets = np.array(base_dataset.targets)[np.arange(0,1000)]
+    idx = x_u_split_mod(base_dataset.targets)
+    base_dataset.data = base_dataset.data[idx]
+    base_dataset.targets = np.array(base_dataset.targets)[idx]
+    print(len(base_dataset))
     if args.amp:
         from apex import amp
     global best_acc
@@ -331,6 +347,14 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
     
     for epoch in range(args.start_epoch, args.epochs):
+        modelemb = modelswb.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
+        #ckpt = torch.load("barlow_weights.pt")
+        # print(ckpt.keys())
+        #modelemb.load_state_dict(ckpt)
+        modelemb.load_state_dict(copy.deepcopy(test_model.state_dict()))
+        modelemb.eval()
+        mhdister = ssder.SSDC(modelemb,base_dataset,10,args)
+        test_model.eval()
         batch_time = AverageMeter()
         data_time = AverageMeter()
         losses = AverageMeter()
@@ -393,27 +417,22 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
 
-            #mahl_mask = torch.tensor(mhdister.batch_md(inputs_u_w)).to(args.device) #part of atleast 1 cluster
-            #print(targets_mahl,targets_mahl.shape)
-            #acc_mask_mahl_gt = targets_mahl.eq(targets_gt).to(torch.int32).sum().item()/targets_mahl.size()[0]  #acc of mahl dist mask
-
-            #print(acc_mask_mahl_gt)
-            #print(targets_mahl.eq(targets_gt),targets_mahl,targets_gt)
             pseudo_label = torch.softmax(logits_u_w.detach()/args.T, dim=-1)
             max_probs, targets_u = torch.max(pseudo_label, dim=-1)
             mask = max_probs.ge(args.threshold).float()
-            #print(targets_u,targets_u.shape)
-
-            #acc_mask_fxmtch_gt = (targets_gt.eq(targets_u).to(torch.int32)*mask).sum().item()/(mask.sum().item()+1) #acc of fixmatch mask
-            #og_choice.update(mask.sum().item())
-            #mahl_mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32) #mask2 based on mahl targets and weak aug targets being same
-
-            #acc_mask_comb_gt = (targets_gt.eq(targets_u).to(torch.int32)*mahl_mask).sum().item()/(mahl_mask.sum().item()+1) #acc of fixmatch mask
-            
-            #mask = torch.logical_and(mahl_mask,mask.to(torch.int32)).to(torch.float32)  #new mask, logical and of fixmatch mask and mahl_mask
-            #new_choice.update(mask.sum().item())
+            targets_mh = torch.tensor(mhdister.batch_md(inputs_u_w),device = args.device)
+            mask2 = targets_mh.eq(targets_u).to(torch.int32) #mask where the mahlanobis pred is same as fxmt pred
+            mask3 = mask2*mask #mask where both preds are equal and threshold is crossed
+            mask4 = targets_mh.eq(targets_gt).to(torch.int32)
+            actt2 = mask4.sum().item()/mask4.flatten().shape[0] 
+            mask4 = mask4*mask3
+            acct = mask4.sum().item()/(mask3.sum().item() if mask3.sum().item() !=0 else 1)
+            accuracymahlcomb.update(acct)
+            accuracymahlonly.update(actt2)
+            if epoch<=2:
+                mask3=mask
             Lu = (F.cross_entropy(logits_u_s, targets_u,
-                                  reduction='none') * mask).mean()
+                                  reduction='none') * mask3).mean()
 
             loss = Lx + args.lambda_u * Lu
 
@@ -462,29 +481,22 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             test_model = model
 
 
-        modelemb = modelswb.build_wideresnet(28,2,dropout=0,num_classes=10).to(args.device)
-        #ckpt = torch.load("barlow_weights.pt")
-        # print(ckpt.keys())
-        #modelemb.load_state_dict(ckpt)
-        modelemb.load_state_dict(copy.deepcopy(test_model.state_dict()))
-        modelemb.eval()
-        mhdister = ssder.SSDC(modelemb,base_dataset,10,args)
-        test_model.eval()
-        for i,((x_u,x_w),targets_true) in enumerate(unlabeled_trainloader):
-            logits_u = model(x_u.to(args.device))
-            targets_true = targets_true.to(args.device)
-            pseudo_label = torch.softmax(logits_u.detach()/args.T, dim=-1)
-            max_probs, targets_u = torch.max(pseudo_label, dim=-1)
-            mask = max_probs.ge(args.threshold).float()
-            targets_mh = torch.tensor(mhdister.batch_md(x_u),device = args.device)
-            mask2 = targets_mh.eq(targets_u).to(torch.int32) #mask where the mahlanobis pred is same as fxmt pred
-            mask3 = mask2*mask #mask where both preds are equal and threshold is crossed
-            mask4 = targets_mh.eq(targets_true).to(torch.int32)
-            actt2 = mask4.sum().item()/mask4.flatten().shape[0] 
-            mask4 = mask4*mask3
-            acct = mask4.sum().item()/(mask3.sum().item() if mask3.sum().item() !=0 else 1)
-            accuracymahlcomb.update(acct)
-            accuracymahlonly.update(actt2)
+        
+        # for i,((x_u,x_w),targets_true) in enumerate(unlabeled_trainloader):
+        #     logits_u = model(x_u.to(args.device))
+        #     targets_true = targets_true.to(args.device)
+        #     pseudo_label = torch.softmax(logits_u.detach()/args.T, dim=-1)
+        #     max_probs, targets_u = torch.max(pseudo_label, dim=-1)
+        #     mask = max_probs.ge(args.threshold).float()
+        #     targets_mh = torch.tensor(mhdister.batch_md(x_u),device = args.device)
+        #     mask2 = targets_mh.eq(targets_u).to(torch.int32) #mask where the mahlanobis pred is same as fxmt pred
+        #     mask3 = mask2*mask #mask where both preds are equal and threshold is crossed
+        #     mask4 = targets_mh.eq(targets_true).to(torch.int32)
+        #     actt2 = mask4.sum().item()/mask4.flatten().shape[0] 
+        #     mask4 = mask4*mask3
+        #     acct = mask4.sum().item()/(mask3.sum().item() if mask3.sum().item() !=0 else 1)
+        #     accuracymahlcomb.update(acct)
+        #     accuracymahlonly.update(actt2)
             #print(acct)
             #print(actt2)
             
